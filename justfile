@@ -21,11 +21,22 @@ clean:
     @rm -rf build/ dist/ *.egg-info/ && find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && find . -type f -name "*.pyc" -delete
 
 # Deploy to Raspberry Pi (requires SSH access)
-deploy-pi host:
+pi-deploy host:
     #!/bin/bash
     echo "Deploying to Raspberry Pi at {{host}}..."
-    rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' . {{host}}:~/bramble/
+    
+    # Stop service if running
+    ssh {{host}} "sudo systemctl is-active --quiet signage.service && sudo systemctl stop signage.service || true"
+    
+    # Deploy files (exclude media directory to preserve existing media)
+    rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='media/' . {{host}}:~/bramble/
+    
+    # Update dependencies
     ssh {{host}} "cd ~/bramble && source \$HOME/.cargo/env && uv sync"
+    
+    # Restart service if it was installed
+    ssh {{host}} "sudo systemctl is-enabled --quiet signage.service && sudo systemctl start signage.service || true"
+    
     echo "✓ Deployed to {{host}}"
 
 
@@ -38,42 +49,39 @@ install:
     @uv tool install . && echo "✓ Installed globally as 'bramble' command"
 
 # Install and enable systemd service (Pi only)
-install-service:
+pi-install-service host:
     #!/bin/bash
-    echo "Installing systemd service..."
-    sudo tee /etc/systemd/system/signage.service > /dev/null << 'EOF'
-    [Unit]
-    Description=Digital Signage System
-    After=graphical-session.target
-    
-    [Service]
-    Type=simple
-    User=pi
-    WorkingDirectory=/home/pi/bramble
-    ExecStart=/home/pi/.local/bin/uv run python main.py
-    Restart=always
-    RestartSec=5
-    Environment=DISPLAY=:0
-    Environment="PATH=/home/pi/.cargo/bin:/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin"
-    
-    [Install]
-    WantedBy=graphical-session.target
-    EOF
-    sudo systemctl daemon-reload
-    sudo systemctl enable signage.service
-    echo "✓ Service installed. Start with: sudo systemctl start signage"
+    echo "Installing systemd service on {{host}}..."
+    ssh {{host}} 'sudo tee /etc/systemd/system/signage.service > /dev/null << EOF
+[Unit]
+Description=Digital Signage System
+After=graphical-session.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/bramble
+ExecStart=/home/pi/.local/bin/uv run python main.py
+Restart=always
+RestartSec=5
+Environment=DISPLAY=:0
+Environment="PATH=/home/pi/.cargo/bin:/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin"
+
+[Install]
+WantedBy=graphical-session.target
+EOF'
+    ssh {{host}} "sudo systemctl daemon-reload && sudo systemctl enable signage.service"
+    echo "✓ Service installed on {{host}}. Start with: just pi-service-start {{host}}"
 
 
 # Setup for Raspberry Pi (update system and install MPV)
-pi-setup:
+pi-setup host:
     #!/bin/bash
-    echo "Setting up Raspberry Pi..."
-    sudo apt-get update
-    sudo apt-get install -y mpv python3-pip curl
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    source $HOME/.cargo/env
-    uv sync
-    echo "✓ Raspberry Pi setup complete"
+    echo "Setting up Raspberry Pi at {{host}}..."
+    ssh {{host}} "sudo apt-get update && sudo apt-get install -y mpv python3-pip curl"
+    ssh {{host}} "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    ssh {{host}} "mkdir -p ~/bramble"
+    echo "✓ Raspberry Pi setup complete at {{host}}"
 
 # Run the signage system
 run *args:
@@ -93,3 +101,27 @@ test:
 # Update all dependencies to latest versions
 update:
     @uv sync --upgrade && echo "✓ Dependencies updated"
+
+# Raspberry Pi service management
+pi-service-start host:
+    @ssh {{host}} "sudo systemctl start signage.service" && echo "✓ Service started on {{host}}"
+
+pi-service-stop host:
+    @ssh {{host}} "sudo systemctl stop signage.service" && echo "✓ Service stopped on {{host}}"
+
+pi-service-status host:
+    @ssh {{host}} "sudo systemctl status signage.service"
+
+pi-service-logs host:
+    @ssh {{host}} "journalctl -u signage.service -f"
+
+# Complete Pi deployment (setup + deploy + install service)
+pi-full-deploy host:
+    @just pi-setup {{host}}
+    @just pi-deploy {{host}}
+    @just pi-install-service {{host}}
+    @echo "✓ Complete deployment to {{host}} finished"
+
+# Connect to Pi and run signage in test mode for debugging  
+pi-debug host:
+    @ssh {{host}} "cd ~/bramble && source ~/.cargo/env && uv run python main.py --test-mode --verbose"
