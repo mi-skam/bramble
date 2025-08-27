@@ -93,7 +93,18 @@ pi host:
     # Setup Pi (install dependencies)
     echo "📦 Setting up Raspberry Pi dependencies..."
     ssh {{host}} "sudo apt-get update && sudo apt-get install -y mpv python3-pip curl"
+    
+    # Install uv and ensure it's in PATH
+    echo "📦 Installing uv package manager..."
     ssh {{host}} "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    ssh {{host}} "echo 'export PATH=\$HOME/.cargo/bin:\$PATH' >> ~/.bashrc"
+    
+    # Verify uv installation
+    ssh {{host}} "export PATH=\$HOME/.cargo/bin:\$PATH && uv --version" || {
+        echo "❌ Failed to install uv"
+        exit 1
+    }
+    
     ssh {{host}} "mkdir -p ~/bramble"
     echo "✓ Pi setup complete"
     
@@ -129,6 +140,29 @@ pi host:
 # Connect to Pi and run signage in test mode for debugging  
 pi-debug host:
     @ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.cargo/bin:\$PATH && uv run python main.py --test-mode --verbose"
+
+# Install or repair uv on Raspberry Pi
+pi-fix-uv host:
+    #!/bin/bash
+    echo "🔧 Installing/repairing uv on {{host}}..."
+    
+    # Install uv
+    ssh {{host}} "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    
+    # Add to PATH in bashrc if not already there
+    ssh {{host}} "grep -q '.cargo/bin' ~/.bashrc || echo 'export PATH=\$HOME/.cargo/bin:\$PATH' >> ~/.bashrc"
+    
+    # Verify installation
+    if ssh {{host}} "export PATH=\$HOME/.cargo/bin:\$PATH && uv --version"; then
+        echo "✓ uv is working on {{host}}"
+    else
+        echo "❌ Failed to install uv on {{host}}"
+        echo "Try manual installation:"
+        echo "  1. SSH into the Pi: just ssh {{host}}"
+        echo "  2. Run: curl -LsSf https://astral.sh/uv/install.sh | sh"
+        echo "  3. Run: source \$HOME/.cargo/env"
+        exit 1
+    fi
 
 # SSH into Raspberry Pi
 ssh host:
