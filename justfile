@@ -1,4 +1,6 @@
 # Justfile for digital signage project
+# Note: uv (Python package manager) is installed via Rust's cargo toolchain,
+# hence the ~/.cargo/bin PATH references throughout the Pi deployment targets
 
 # Default recipe lists all available commands
 default:
@@ -31,8 +33,8 @@ pi-deploy host:
     # Deploy files (exclude media directory to preserve existing media)
     rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='media/' . {{host}}:~/bramble/
     
-    # Update dependencies
-    ssh {{host}} "cd ~/bramble && source \$HOME/.cargo/env && uv sync"
+    # Update dependencies (uv installed via rust toolchain)
+    ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.cargo/bin:\$PATH && uv sync"
     
     # Restart service if it was installed
     ssh {{host}} "sudo systemctl is-enabled --quiet signage.service && sudo systemctl start signage.service || true"
@@ -126,7 +128,7 @@ pi host:
 
 # Connect to Pi and run signage in test mode for debugging  
 pi-debug host:
-    @ssh {{host}} "cd ~/bramble && source ~/.cargo/env && uv run python main.py --test-mode --verbose"
+    @ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.cargo/bin:\$PATH && uv run python main.py --test-mode --verbose"
 
 # SSH into Raspberry Pi
 ssh host:
