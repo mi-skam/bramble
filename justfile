@@ -52,24 +52,24 @@ install:
 pi-install-service host:
     #!/bin/bash
     echo "Installing systemd service on {{host}}..."
-    ssh {{host}} 'sudo tee /etc/systemd/system/signage.service > /dev/null << EOF
-[Unit]
-Description=Digital Signage System
-After=graphical-session.target
-
-[Service]
-Type=simple
-User=pi
-WorkingDirectory=/home/pi/bramble
-ExecStart=/home/pi/.local/bin/uv run python main.py
-Restart=always
-RestartSec=5
-Environment=DISPLAY=:0
-Environment="PATH=/home/pi/.cargo/bin:/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin"
-
-[Install]
-WantedBy=graphical-session.target
-EOF'
+    ssh {{host}} 'printf "%s\n" \
+        "[Unit]" \
+        "Description=Digital Signage System" \
+        "After=graphical-session.target" \
+        "" \
+        "[Service]" \
+        "Type=simple" \
+        "User=pi" \
+        "WorkingDirectory=/home/pi/bramble" \
+        "ExecStart=/home/pi/.local/bin/uv run python main.py" \
+        "Restart=always" \
+        "RestartSec=5" \
+        "Environment=DISPLAY=:0" \
+        "Environment=PATH=/home/pi/.cargo/bin:/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin" \
+        "" \
+        "[Install]" \
+        "WantedBy=graphical-session.target" \
+        | sudo tee /etc/systemd/system/signage.service > /dev/null'
     ssh {{host}} "sudo systemctl daemon-reload && sudo systemctl enable signage.service"
     echo "✓ Service installed on {{host}}. Start with: just pi-service-start {{host}}"
 
@@ -116,7 +116,7 @@ pi-service-logs host:
     @ssh {{host}} "journalctl -u signage.service -f"
 
 # Complete Pi deployment (setup + deploy + install service)
-pi-full-deploy host:
+pi host:
     @just pi-setup {{host}}
     @just pi-deploy {{host}}
     @just pi-install-service {{host}}
@@ -125,3 +125,4 @@ pi-full-deploy host:
 # Connect to Pi and run signage in test mode for debugging  
 pi-debug host:
     @ssh {{host}} "cd ~/bramble && source ~/.cargo/env && uv run python main.py --test-mode --verbose"
+
