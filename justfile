@@ -118,24 +118,29 @@ pi host:
     
     # Install systemd service
     echo "⚙️ Installing systemd service..."
-    ssh {{host}} 'printf "%s\n" \
-        "[Unit]" \
-        "Description=Digital Signage System" \
-        "After=graphical-session.target" \
-        "" \
-        "[Service]" \
-        "Type=simple" \
-        "User=pi" \
-        "WorkingDirectory=/home/pi/bramble" \
-        "ExecStart=/bin/bash -c '\''export PATH=/home/pi/.local/bin:/home/pi/.cargo/bin:\$PATH && cd /home/pi/bramble && uv run python main.py'\''" \
-        "Restart=always" \
-        "RestartSec=5" \
-        "Environment=DISPLAY=:0" \
-        "Environment=PATH=/home/pi/.cargo/bin:/home/pi/.local/bin:/usr/local/bin:/usr/bin:/bin" \
-        "" \
-        "[Install]" \
-        "WantedBy=graphical-session.target" \
-        | sudo tee /etc/systemd/system/signage.service > /dev/null'
+    
+    # Get the actual username on the Pi
+    USERNAME=$(ssh {{host}} "whoami")
+    HOMEDIR=$(ssh {{host}} "echo \$HOME")
+    
+    ssh {{host}} "printf '%s\n' \
+        '[Unit]' \
+        'Description=Digital Signage System' \
+        'After=graphical-session.target' \
+        '' \
+        '[Service]' \
+        'Type=simple' \
+        'User=$USERNAME' \
+        'WorkingDirectory=$HOMEDIR/bramble' \
+        'ExecStart=/bin/bash -c \"export PATH=$HOMEDIR/.local/bin:$HOMEDIR/.cargo/bin:\$PATH && cd $HOMEDIR/bramble && uv run python main.py\"' \
+        'Restart=always' \
+        'RestartSec=5' \
+        'Environment=DISPLAY=:0' \
+        'Environment=\"PATH=$HOMEDIR/.local/bin:$HOMEDIR/.cargo/bin:/usr/local/bin:/usr/bin:/bin\"' \
+        '' \
+        '[Install]' \
+        'WantedBy=graphical-session.target' \
+        | sudo tee /etc/systemd/system/signage.service > /dev/null"
     ssh {{host}} "sudo systemctl daemon-reload && sudo systemctl enable signage.service"
     echo "✓ Service installed and enabled"
     
@@ -144,29 +149,6 @@ pi host:
 # Connect to Pi and run signage in test mode for debugging  
 pi-debug host:
     @ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv run python main.py --test-mode --verbose"
-
-# Install or repair uv on Raspberry Pi
-pi-fix-uv host:
-    #!/bin/bash
-    echo "🔧 Installing/repairing uv on {{host}}..."
-    
-    # Install uv
-    ssh {{host}} "curl -LsSf https://astral.sh/uv/install.sh | sh"
-    
-    # Add both possible paths to bashrc if not already there
-    ssh {{host}} "grep -q '.local/bin' ~/.bashrc || echo 'export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH' >> ~/.bashrc"
-    
-    # Verify installation
-    if ssh {{host}} "export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv --version"; then
-        echo "✓ uv is working on {{host}}"
-    else
-        echo "❌ Failed to install uv on {{host}}"
-        echo "Try manual installation:"
-        echo "  1. SSH into the Pi: just ssh {{host}}"
-        echo "  2. Run: curl -LsSf https://astral.sh/uv/install.sh | sh"
-        echo "  3. Run: source \$HOME/.cargo/env"
-        exit 1
-    fi
 
 # SSH into Raspberry Pi
 ssh host:
