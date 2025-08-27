@@ -114,7 +114,20 @@ pi host:
     
     # Deploy code
     echo "🚀 Deploying bramble to {{host}}..."
-    @just pi-deploy {{host}}
+    
+    # Stop service if running
+    ssh {{host}} "sudo systemctl is-active --quiet signage.service && sudo systemctl stop signage.service || true"
+    
+    # Deploy files (exclude media directory to preserve existing media)
+    rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='media/' . {{host}}:~/bramble/
+    
+    # Update dependencies
+    ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv sync"
+    
+    # Restart service if it was installed
+    ssh {{host}} "sudo systemctl is-enabled --quiet signage.service && sudo systemctl start signage.service || true"
+    
+    echo "✓ Deployed to {{host}}"
     
     # Install systemd service
     echo "⚙️ Installing systemd service..."
@@ -126,7 +139,7 @@ pi host:
     ssh {{host}} "printf '%s\n' \
         '[Unit]' \
         'Description=Digital Signage System' \
-        'After=graphical-session.target' \
+        'After=graphical.target' \
         '' \
         '[Service]' \
         'Type=simple' \
@@ -139,12 +152,12 @@ pi host:
         'Environment=\"PATH=$HOMEDIR/.local/bin:$HOMEDIR/.cargo/bin:/usr/local/bin:/usr/bin:/bin\"' \
         '' \
         '[Install]' \
-        'WantedBy=graphical-session.target' \
+        'WantedBy=graphical.target' \
         | sudo tee /etc/systemd/system/signage.service > /dev/null"
     ssh {{host}} "sudo systemctl daemon-reload && sudo systemctl enable signage.service"
     echo "✓ Service installed and enabled"
     
-    echo "🎉 Complete deployment to {{host}} finished! Use 'just pi-service-start {{host}}' to start."
+    echo "🎉 Complete deployment to {{host}} finished! Use 'just pi-start {{host}}' to start."
 
 # Connect to Pi and run signage in test mode for debugging  
 pi-debug host:
