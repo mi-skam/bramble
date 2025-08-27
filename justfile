@@ -71,16 +71,16 @@ update:
     @uv sync --upgrade && echo "✓ Dependencies updated"
 
 # Raspberry Pi service management
-pi-service-start host:
+pi-start host:
     @ssh {{host}} "sudo systemctl start signage.service" && echo "✓ Service started on {{host}}"
 
-pi-service-stop host:
+pi-stop host:
     @ssh {{host}} "sudo systemctl stop signage.service" && echo "✓ Service stopped on {{host}}"
 
-pi-service-status host:
+pi-status host:
     @ssh {{host}} "sudo systemctl status signage.service"
 
-pi-service-logs host:
+pi-logs host:
     @ssh {{host}} "journalctl -u signage.service -f"
 
 # Complete Pi deployment (setup + deploy + install service)
@@ -127,4 +127,8 @@ pi host:
 # Connect to Pi and run signage in test mode for debugging  
 pi-debug host:
     @ssh {{host}} "cd ~/bramble && source ~/.cargo/env && uv run python main.py --test-mode --verbose"
+
+# SSH into Raspberry Pi
+ssh host:
+    @ssh {{host}}
 
