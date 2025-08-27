@@ -74,14 +74,6 @@ pi-install-service host:
     echo "✓ Service installed on {{host}}. Start with: just pi-service-start {{host}}"
 
 
-# Setup for Raspberry Pi (update system and install MPV)
-pi-setup host:
-    #!/bin/bash
-    echo "Setting up Raspberry Pi at {{host}}..."
-    ssh {{host}} "sudo apt-get update && sudo apt-get install -y mpv python3-pip curl"
-    ssh {{host}} "curl -LsSf https://astral.sh/uv/install.sh | sh"
-    ssh {{host}} "mkdir -p ~/bramble"
-    echo "✓ Raspberry Pi setup complete at {{host}}"
 
 # Run the signage system
 run *args:
@@ -117,10 +109,25 @@ pi-service-logs host:
 
 # Complete Pi deployment (setup + deploy + install service)
 pi host:
-    @just pi-setup {{host}}
+    #!/bin/bash
+    echo "🍇 Starting complete Raspberry Pi deployment to {{host}}..."
+    
+    # Setup Pi (install dependencies)
+    echo "📦 Setting up Raspberry Pi dependencies..."
+    ssh {{host}} "sudo apt-get update && sudo apt-get install -y mpv python3-pip curl"
+    ssh {{host}} "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    ssh {{host}} "mkdir -p ~/bramble"
+    echo "✓ Pi setup complete"
+    
+    # Deploy code
+    echo "🚀 Deploying bramble to {{host}}..."
     @just pi-deploy {{host}}
+    
+    # Install service
+    echo "⚙️ Installing systemd service..."
     @just pi-install-service {{host}}
-    @echo "✓ Complete deployment to {{host}} finished"
+    
+    echo "🎉 Complete deployment to {{host}} finished!"
 
 # Connect to Pi and run signage in test mode for debugging  
 pi-debug host:
