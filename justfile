@@ -1,8 +1,6 @@
 # Justfile for digital signage project
-# Note: uv (Python package manager) installs to different locations:
-# - ARM (Raspberry Pi): ~/.local/bin
-# - x86/x64: ~/.cargo/bin
-# Both paths are included for compatibility
+
+host := env_var_or_default("PI_HOST", "pi1")
 
 # Default recipe lists all available commands
 default:
@@ -25,7 +23,7 @@ clean:
     @rm -rf build/ dist/ *.egg-info/ && find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && find . -type f -name "*.pyc" -delete
 
 # Deploy to Raspberry Pi (requires SSH access)
-pi-deploy host:
+pi-deploy:
     #!/bin/bash
     echo "Deploying to Raspberry Pi at {{host}}..."
     
@@ -75,20 +73,20 @@ update:
     @uv sync --upgrade && echo "✓ Dependencies updated"
 
 # Raspberry Pi service management
-pi-start host:
+pi-start:
     @ssh {{host}} "sudo systemctl start signage.service" && echo "✓ Service started on {{host}}"
 
-pi-stop host:
+pi-stop:
     @ssh {{host}} "sudo systemctl stop signage.service" && echo "✓ Service stopped on {{host}}"
 
-pi-status host:
+pi-status:
     @ssh {{host}} "sudo systemctl status signage.service"
 
-pi-logs host:
+pi-logs:
     @ssh {{host}} "journalctl -u signage.service -f"
 
 # Complete Pi deployment (setup + deploy + install service)
-pi host:
+pi:
     #!/bin/bash
     echo "🍇 Starting complete Raspberry Pi deployment to {{host}}..."
     
@@ -118,8 +116,8 @@ pi host:
     # Stop service if running
     ssh {{host}} "sudo systemctl is-active --quiet signage.service && sudo systemctl stop signage.service || true"
     
-    # Deploy files (exclude media directory to preserve existing media)
-    rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='media/' . {{host}}:~/bramble/
+    # Deploy files
+    rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' . {{host}}:~/bramble/
     
     # Update dependencies
     ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv sync"
@@ -159,30 +157,7 @@ pi host:
     
     echo "🎉 Complete deployment to {{host}} finished! Use 'just pi-start {{host}}' to start."
 
-# Connect to Pi and run signage in test mode for debugging  
-pi-debug host:
-    @ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv run python main.py --test-mode --verbose"
-
-# Create sample media files on Pi
-pi-create-samples host:
-    #!/bin/bash
-    echo "🎨 Creating sample media files on {{host}}..."
-    ssh {{host}} "mkdir -p ~/bramble/media"
-    
-    # Create colorful test images using ImageMagick
-    ssh {{host}} "command -v convert" > /dev/null 2>&1 || {
-        echo "Installing ImageMagick for sample creation..."
-        ssh {{host}} "sudo apt-get install -y imagemagick"
-    }
-    
-    ssh {{host}} "cd ~/bramble/media && \
-        convert -size 1920x1080 gradient:blue-cyan -pointsize 100 -fill white -gravity center -annotate 0 'Bramble Test 1' test1.png && \
-        convert -size 1920x1080 gradient:red-orange -pointsize 100 -fill white -gravity center -annotate 0 'Bramble Test 2' test2.png && \
-        convert -size 1920x1080 gradient:green-lime -pointsize 100 -fill white -gravity center -annotate 0 'Bramble Test 3' test3.png"
-    
-    echo "✓ Created 3 test images in media directory"
-
 # SSH into Raspberry Pi
-ssh host:
+ssh:
     @ssh {{host}}
 
