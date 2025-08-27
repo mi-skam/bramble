@@ -1,0 +1,34 @@
+# Digital Signage Configuration
+# This file contains default settings for the signage system
+
+# Media directory containing images and videos
+media_directory: "./media"
+
+# Default duration for displaying images (in seconds)
+default_image_duration: 10.0
+
+# MPV settings
+# Leave socket_path as null to use auto-generated temp path
+socket_path: null
+
+# Video output driver (null = auto-detect)
+# Options: gpu (desktop), drm (Raspberry Pi), x11, wayland
+video_output: null
+
+# Hardware decoding mode
+# Options: auto, yes, no, vaapi, vdpau, nvdec
+hardware_decode: "auto"
+
+# Display settings
+# Run in fullscreen mode (disable for testing)
+fullscreen: true
+
+# Test mode (windowed, verbose logging)
+test_mode: false
+
+# Watch media directory for changes
+watch_directory: true
+
+# Logging level
+# Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level: "INFO"
