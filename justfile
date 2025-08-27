@@ -163,6 +163,25 @@ pi host:
 pi-debug host:
     @ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv run python main.py --test-mode --verbose"
 
+# Create sample media files on Pi
+pi-create-samples host:
+    #!/bin/bash
+    echo "🎨 Creating sample media files on {{host}}..."
+    ssh {{host}} "mkdir -p ~/bramble/media"
+    
+    # Create colorful test images using ImageMagick
+    ssh {{host}} "command -v convert" > /dev/null 2>&1 || {
+        echo "Installing ImageMagick for sample creation..."
+        ssh {{host}} "sudo apt-get install -y imagemagick"
+    }
+    
+    ssh {{host}} "cd ~/bramble/media && \
+        convert -size 1920x1080 gradient:blue-cyan -pointsize 100 -fill white -gravity center -annotate 0 'Bramble Test 1' test1.png && \
+        convert -size 1920x1080 gradient:red-orange -pointsize 100 -fill white -gravity center -annotate 0 'Bramble Test 2' test2.png && \
+        convert -size 1920x1080 gradient:green-lime -pointsize 100 -fill white -gravity center -annotate 0 'Bramble Test 3' test3.png"
+    
+    echo "✓ Created 3 test images in media directory"
+
 # SSH into Raspberry Pi
 ssh host:
     @ssh {{host}}

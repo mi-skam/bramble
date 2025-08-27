@@ -148,7 +148,8 @@ class MPVController:
             cmd.append("--fullscreen")
 
         if self.video_output == "drm":
-            cmd.extend(["--drm-connector=help", "--drm-mode=preferred"])
+            # Use first available connector, preferred mode
+            cmd.append("--drm-mode=preferred")
 
         try:
             logger.info(f"Starting MPV with command: {' '.join(cmd)}")
