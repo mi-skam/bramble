@@ -79,17 +79,18 @@ class SignageConfig:
                 try:
                     attr_type = type(getattr(config, attr_name))
 
+                    parsed_value: bool | float | int | str
                     if attr_type is bool:
-                        value = env_value.lower() in ("true", "1", "yes", "on")
+                        parsed_value = env_value.lower() in ("true", "1", "yes", "on")
                     elif attr_type is float:
-                        value = float(env_value)
+                        parsed_value = float(env_value)
                     elif attr_type is int:
-                        value = int(env_value)
+                        parsed_value = int(env_value)
                     else:
-                        value = env_value
+                        parsed_value = env_value
 
-                    setattr(config, attr_name, value)
-                    logger.debug(f"Set {attr_name} from environment: {value}")
+                    setattr(config, attr_name, parsed_value)
+                    logger.debug(f"Set {attr_name} from environment: {parsed_value}")
                 except (ValueError, TypeError) as e:
                     logger.error(f"Invalid value for {env_var}: {env_value} ({e})")
 

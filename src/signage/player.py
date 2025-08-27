@@ -83,7 +83,7 @@ class MPVController:
         """Check if MPV process is still running."""
         if self.process is None:
             return False
-        
+
         poll_result = self.process.poll()
         if poll_result is not None:
             # Process has terminated
@@ -93,7 +93,7 @@ class MPVController:
                 logger.warning(f"MPV process terminated with exit code {poll_result}")
                 self._log_mpv_output()
             return False
-        
+
         return True
 
     def get_exit_code(self) -> int | None:
@@ -108,6 +108,7 @@ class MPVController:
             try:
                 # Read any available output
                 import select
+
                 ready, _, _ = select.select([self.process.stdout], [], [], 0)
                 if ready:
                     output = self.process.stdout.read()
@@ -230,7 +231,7 @@ class MPVController:
 
                 for line in response_data.strip().split("\n"):
                     if line:
-                        response = json.loads(line)
+                        response: dict[str, Any] = json.loads(line)
                         if response.get("request_id") == self.request_id:
                             if response.get("error") != "success":
                                 logger.debug(f"MPV command response: {response.get('error')}")
