@@ -1,6 +1,8 @@
 # Justfile for digital signage project
-# Note: uv (Python package manager) is installed via Rust's cargo toolchain,
-# hence the ~/.cargo/bin PATH references throughout the Pi deployment targets
+# Note: uv (Python package manager) installs to different locations:
+# - ARM (Raspberry Pi): ~/.local/bin
+# - x86/x64: ~/.cargo/bin
+# Both paths are included for compatibility
 
 # Default recipe lists all available commands
 default:
@@ -33,8 +35,8 @@ pi-deploy host:
     # Deploy files (exclude media directory to preserve existing media)
     rsync -av --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' --exclude='.venv' --exclude='media/' . {{host}}:~/bramble/
     
-    # Update dependencies (uv installed via rust toolchain)
-    ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.cargo/bin:\$PATH && uv sync"
+    # Update dependencies (uv in .local/bin on ARM, .cargo/bin on x86)
+    ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv sync"
     
     # Restart service if it was installed
     ssh {{host}} "sudo systemctl is-enabled --quiet signage.service && sudo systemctl start signage.service || true"
@@ -94,13 +96,15 @@ pi host:
     echo "📦 Setting up Raspberry Pi dependencies..."
     ssh {{host}} "sudo apt-get update && sudo apt-get install -y mpv python3-pip curl"
     
-    # Install uv and ensure it's in PATH
+    # Install uv and ensure it is in PATH
     echo "📦 Installing uv package manager..."
     ssh {{host}} "curl -LsSf https://astral.sh/uv/install.sh | sh"
-    ssh {{host}} "echo 'export PATH=\$HOME/.cargo/bin:\$PATH' >> ~/.bashrc"
+    
+    # Add both possible uv locations to PATH (ARM uses .local/bin, x86 uses .cargo/bin)
+    ssh {{host}} "grep -q '.local/bin' ~/.bashrc || echo 'export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH' >> ~/.bashrc"
     
     # Verify uv installation
-    ssh {{host}} "export PATH=\$HOME/.cargo/bin:\$PATH && uv --version" || {
+    ssh {{host}} "export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv --version" || {
         echo "❌ Failed to install uv"
         exit 1
     }
@@ -123,7 +127,7 @@ pi host:
         "Type=simple" \
         "User=pi" \
         "WorkingDirectory=/home/pi/bramble" \
-        "ExecStart=/home/pi/.local/bin/uv run python main.py" \
+        "ExecStart=/bin/bash -c '\''export PATH=/home/pi/.local/bin:/home/pi/.cargo/bin:\$PATH && cd /home/pi/bramble && uv run python main.py'\''" \
         "Restart=always" \
         "RestartSec=5" \
         "Environment=DISPLAY=:0" \
@@ -139,7 +143,7 @@ pi host:
 
 # Connect to Pi and run signage in test mode for debugging  
 pi-debug host:
-    @ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.cargo/bin:\$PATH && uv run python main.py --test-mode --verbose"
+    @ssh {{host}} "cd ~/bramble && export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv run python main.py --test-mode --verbose"
 
 # Install or repair uv on Raspberry Pi
 pi-fix-uv host:
@@ -149,11 +153,11 @@ pi-fix-uv host:
     # Install uv
     ssh {{host}} "curl -LsSf https://astral.sh/uv/install.sh | sh"
     
-    # Add to PATH in bashrc if not already there
-    ssh {{host}} "grep -q '.cargo/bin' ~/.bashrc || echo 'export PATH=\$HOME/.cargo/bin:\$PATH' >> ~/.bashrc"
+    # Add both possible paths to bashrc if not already there
+    ssh {{host}} "grep -q '.local/bin' ~/.bashrc || echo 'export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH' >> ~/.bashrc"
     
     # Verify installation
-    if ssh {{host}} "export PATH=\$HOME/.cargo/bin:\$PATH && uv --version"; then
+    if ssh {{host}} "export PATH=\$HOME/.local/bin:\$HOME/.cargo/bin:\$PATH && uv --version"; then
         echo "✓ uv is working on {{host}}"
     else
         echo "❌ Failed to install uv on {{host}}"
